@@ -55,6 +55,13 @@ export default function Home() {
       <h1 className="text-3xl font-semibold text-gray-900">
         Gestión de Clientes
       </h1>
+      <div className="mt-6">
+        <img
+          src="/images/tralalero-tralala"
+          alt="Tralalero Tralala"
+          className="w-full h-auto rounded-md"
+        />
+      </div>
 
       <form className="space-y-12 mt-8">
         <div className="border-b border-gray-900/10 pb-12">
