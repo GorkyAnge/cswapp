@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Papa from "papaparse";
+import Image from "next/image";
 
 export default function Home() {
   const [clients, setClients] = useState([]);
@@ -50,16 +51,24 @@ export default function Home() {
     setResults(data); // Actualiza los resultados
   };
 
+  const playSound = () => {
+    const sound = new Audio("/sounds/tralarero-tralala.mp3"); // Asegúrate de colocar el archivo en la carpeta public/sounds
+    sound.play();
+  };
+
   return (
     <div className="max-w-3xl mx-auto p-8">
-      <h1 className="text-3xl font-semibold text-gray-900">
-        Gestión de Clientes
-      </h1>
-      <div className="mt-6">
-        <img
-          src="/images/tralalero-tralala"
+      <div className="flex items-center justify-center space-x-4">
+        <h1 className="text-3xl font-semibold text-gray-900">
+          Gestión de Clientes
+        </h1>
+        <Image
+          src="/images/tralalero-tralala.png"
           alt="Tralalero Tralala"
-          className="w-full h-auto rounded-md"
+          width={100}
+          height={100}
+          className="rounded-md cursor-pointer"
+          onClick={playSound} // Evento para reproducir el sonido
         />
       </div>
 
