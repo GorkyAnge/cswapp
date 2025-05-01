@@ -14,6 +14,9 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "Client Management CSV",
   description: "Liseth Abad, Nicolás García, Camila Sánchez y Gorky Palacios",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({ children }) {
