@@ -1,8 +1,27 @@
 let clients = [];
 
 export function setClients(newClients) {
+  const dateRegex = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
   clients = newClients
-    .filter((c) => c.id && c.nombres && c.apellidos && c.ciudad && c.email)
+    .filter((c) => {
+      if (!c.id || !c.nombres || !c.apellidos || !c.ciudad || !c.email)
+        return false;
+      // Validar formato de fecha_nacimiento si existe
+      if (
+        c.fecha_nacimiento &&
+        typeof c.fecha_nacimiento === "string" &&
+        !dateRegex.test(c.fecha_nacimiento)
+      )
+        return false;
+      // Validar formato de fecha_registro si existe
+      if (
+        c.fecha_registro &&
+        typeof c.fecha_registro === "string" &&
+        !dateRegex.test(c.fecha_registro)
+      )
+        return false;
+      return true;
+    })
     .map((c) => ({
       id: c.id,
       nombres: c.nombres,

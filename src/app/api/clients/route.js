@@ -36,7 +36,7 @@ export async function GET(request) {
 
   if (id) {
     const client = getClientById(id);
-    return NextResponse.json(client ? client : { error: "Not found" }, {
+    return NextResponse.json(client ? client : {}, {
       status: client ? 200 : 404,
     });
   }
