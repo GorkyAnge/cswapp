@@ -57,7 +57,7 @@ describe('api/clients/route.js', () => {
       data.getClientById.mockReturnValue(undefined);
       const req = makeRequest({ id: '999' });
       await GET(req);
-      expect(mockJson).toHaveBeenCalledWith({ error: 'Not found' }, { status: 404 });
+      expect(mockJson).toHaveBeenCalledWith({}, { status: 404 });
     });
 
     it('returns clients by city', async () => {
