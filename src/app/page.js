@@ -10,6 +10,8 @@ export default function Home() {
   const [citySearch, setCitySearch] = useState("");
   const [results, setResults] = useState([]);
   const [csvFileName, setCsvFileName] = useState(""); // Nuevo estado para el nombre del archivo
+  const [ageMin, setAgeMin] = useState("");
+  const [ageMax, setAgeMax] = useState("");
 
   const handleCSVUpload = (e) => {
     const file = e.target.files[0];
@@ -19,13 +21,31 @@ export default function Home() {
     Papa.parse(file, {
       header: true,
       complete: async (results) => {
+        // Transformar fechas mm/dd/yyyy a Date y mantener los campos correctos
+        const data = results.data.map((row) => {
+          // Parse fechas si existen y son válidas
+          let fecha_nacimiento = row.fecha_nacimiento;
+          let fecha_registro = row.fecha_registro;
+          if (
+            fecha_nacimiento &&
+            /^\d{2}\/\d{2}\/\d{4}$/.test(fecha_nacimiento)
+          ) {
+            const [mm, dd, yyyy] = fecha_nacimiento.split("/");
+            row.fecha_nacimiento = new Date(`${yyyy}-${mm}-${dd}`);
+          }
+          if (fecha_registro && /^\d{2}\/\d{2}\/\d{4}$/.test(fecha_registro)) {
+            const [mm, dd, yyyy] = fecha_registro.split("/");
+            row.fecha_registro = new Date(`${yyyy}-${mm}-${dd}`);
+          }
+          return row;
+        });
         const response = await fetch("/api/clients", {
           method: "POST",
-          body: JSON.stringify(results.data),
+          body: JSON.stringify(data),
         });
         if (response.ok) {
           alert("Datos cargados correctamente");
-          setClients(results.data);
+          setClients(data);
         }
       },
     });
@@ -49,6 +69,16 @@ export default function Home() {
     const res = await fetch(`/api/clients?sort=age`);
     const data = await res.json();
     setResults(data); // Actualiza los resultados
+  };
+
+  const searchByAgeRange = async () => {
+    const params = [];
+    if (ageMin) params.push(`ageMin=${ageMin}`);
+    if (ageMax) params.push(`ageMax=${ageMax}`);
+    const query = params.length ? `?${params.join("&")}` : "";
+    const res = await fetch(`/api/clients${query}`);
+    const data = await res.json();
+    setResults(data);
   };
 
   const playSound = () => {
@@ -122,7 +152,7 @@ export default function Home() {
         <div className="border-b border-gray-900/10 pb-12">
           <h2 className="text-xl font-semibold text-gray-900">Búsqueda</h2>
           <p className="mt-2 text-sm text-gray-600">
-            Filtra los clientes por ID o Ciudad.
+            Filtra los clientes por ID, Ciudad o Rango de Edad.
           </p>
 
           <div className="mt-8 grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-0">
@@ -177,6 +207,40 @@ export default function Home() {
                 Buscar
               </button>
             </div>
+
+            <div className="sm:col-span-1">
+              <label
+                htmlFor="ageMin"
+                className="block text-sm font-medium text-gray-900"
+              >
+                Buscar por Rango de Edad
+              </label>
+              <div className="mt-2 flex space-x-2">
+                <input
+                  id="ageMin"
+                  type="number"
+                  value={ageMin}
+                  onChange={(e) => setAgeMin(e.target.value)}
+                  className="block w-1/2 py-2 px-3 rounded-md text-sm text-gray-900 bg-white border border-gray-300 focus:ring-2 focus:ring-indigo-600"
+                  placeholder="Edad mínima"
+                />
+                <input
+                  id="ageMax"
+                  type="number"
+                  value={ageMax}
+                  onChange={(e) => setAgeMax(e.target.value)}
+                  className="block w-1/2 py-2 px-3 rounded-md text-sm text-gray-900 bg-white border border-gray-300 focus:ring-2 focus:ring-indigo-600"
+                  placeholder="Edad máxima"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={searchByAgeRange}
+                className="mt-2 inline-block text-sm font-semibold text-indigo-600 hover:text-indigo-500"
+              >
+                Buscar
+              </button>
+            </div>
           </div>
         </div>
 
@@ -185,7 +249,7 @@ export default function Home() {
             onClick={sortByAge}
             className="w-full py-2 px-4 rounded-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700"
           >
-            Ordenar por Edad
+            Listar todos los clientes por edad
           </button>
         </div>
       </form>
@@ -195,7 +259,33 @@ export default function Home() {
         <ul className="mt-4 space-y-4">
           {results.map((c, i) => (
             <li key={i} className="text-sm text-gray-900">
-              {c.id} - {c.name} - {c.city} - {c.age}
+              <div>
+                <b>ID:</b> {c.id}
+              </div>
+              <div>
+                <b>Nombres:</b> {c.nombres}
+              </div>
+              <div>
+                <b>Apellidos:</b> {c.apellidos}
+              </div>
+              <div>
+                <b>Fecha de nacimiento:</b>{" "}
+                {c.fecha_nacimiento
+                  ? new Date(c.fecha_nacimiento).toLocaleDateString()
+                  : ""}
+              </div>
+              <div>
+                <b>Ciudad:</b> {c.ciudad}
+              </div>
+              <div>
+                <b>Fecha de registro:</b>{" "}
+                {c.fecha_registro
+                  ? new Date(c.fecha_registro).toLocaleDateString()
+                  : ""}
+              </div>
+              <div>
+                <b>Email:</b> {c.email}
+              </div>
             </li>
           ))}
         </ul>

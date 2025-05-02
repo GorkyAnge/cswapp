@@ -5,6 +5,7 @@ import {
   getClientsByCity,
   getClientsSortedByAge,
   setClients,
+  getClientsByAgeRange,
 } from "../../lib/data";
 
 export async function POST(request) {
@@ -12,9 +13,14 @@ export async function POST(request) {
   setClients(
     body.map((c) => ({
       id: c.id,
-      name: c.name,
-      city: c.city,
-      age: parseInt(c.age, 10),
+      nombres: c.nombres,
+      apellidos: c.apellidos,
+      fecha_nacimiento: c.fecha_nacimiento
+        ? new Date(c.fecha_nacimiento)
+        : null,
+      ciudad: c.ciudad,
+      fecha_registro: c.fecha_registro ? new Date(c.fecha_registro) : null,
+      email: c.email,
     }))
   );
   return NextResponse.json({ ok: true });
@@ -25,6 +31,8 @@ export async function GET(request) {
   const id = searchParams.get("id");
   const city = searchParams.get("city");
   const sort = searchParams.get("sort");
+  const ageMin = searchParams.get("ageMin");
+  const ageMax = searchParams.get("ageMax");
 
   if (id) {
     const client = getClientById(id);
@@ -39,6 +47,10 @@ export async function GET(request) {
 
   if (sort === "age") {
     return NextResponse.json(getClientsSortedByAge());
+  }
+
+  if (ageMin || ageMax) {
+    return NextResponse.json(getClientsByAgeRange(ageMin, ageMax));
   }
 
   return NextResponse.json(getClients());
