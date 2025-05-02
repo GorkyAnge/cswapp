@@ -16,48 +16,84 @@ export default function Home() {
   const handleCSVUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setCsvFileName(file.name); // Establece el nombre del archivo
+    setCsvFileName(file.name);
 
     Papa.parse(file, {
       header: true,
       complete: async (results) => {
-        // Transformar fechas mm/dd/yyyy a Date y mantener los campos correctos
-        const data = results.data.map((row) => {
-          // Parse fechas si existen y son válidas
-          let fecha_nacimiento = row.fecha_nacimiento;
-          let fecha_registro = row.fecha_registro;
+        // Acepta fechas en m/dd/yyyy, mm/dd/yyyy y yyyy-mm-dd
+        const dateRegex = /^(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})$/;
+        let validRows = [];
+        let invalidCount = 0;
+        // Filtrar filas vacías (todas las celdas vacías o undefined)
+        const dataRows = results.data.filter((row) => {
+          return Object.values(row).some(
+            (v) => v && v.toString().trim() !== ""
+          );
+        });
+        dataRows.forEach((row) => {
+          // Validar campos obligatorios
           if (
-            fecha_nacimiento &&
-            /^\d{2}\/\d{2}\/\d{4}$/.test(fecha_nacimiento)
+            !row.id ||
+            !row.nombres ||
+            !row.apellidos ||
+            !row.ciudad ||
+            !row.email
           ) {
-            const [mm, dd, yyyy] = fecha_nacimiento.split("/");
-            row.fecha_nacimiento = new Date(`${yyyy}-${mm}-${dd}`);
+            invalidCount++;
+            return;
           }
-          if (fecha_registro && /^\d{2}\/\d{2}\/\d{4}$/.test(fecha_registro)) {
-            const [mm, dd, yyyy] = fecha_registro.split("/");
-            row.fecha_registro = new Date(`${yyyy}-${mm}-${dd}`);
+          // Validar formato de fechas si existen
+          if (row.fecha_nacimiento && !dateRegex.test(row.fecha_nacimiento)) {
+            invalidCount++;
+            return;
           }
-          return row;
+          if (row.fecha_registro && !dateRegex.test(row.fecha_registro)) {
+            invalidCount++;
+            return;
+          }
+          validRows.push(row);
         });
         const response = await fetch("/api/clients", {
           method: "POST",
-          body: JSON.stringify(data),
+          body: JSON.stringify(validRows),
         });
         if (response.ok) {
-          alert("Datos cargados correctamente");
-          setClients(data);
+          let msg = `Datos cargados correctamente. Registros válidos: ${validRows.length}`;
+          if (invalidCount > 0) {
+            msg += ` | Registros descartados: ${invalidCount}`;
+          }
+          alert(msg);
+          setClients(validRows);
         }
       },
     });
   };
 
   const searchById = async () => {
+    if (!/^\d+$/.test(idSearch)) {
+      alert("El ID debe ser un número positivo.");
+      return;
+    }
     const res = await fetch(`/api/clients?id=${idSearch}`);
     const data = await res.json();
-    setResults(data ? [data] : []);
+    // Si data es null, undefined o un objeto vacío, mostrar sin resultados
+    if (!data || (typeof data === "object" && Object.keys(data).length === 0)) {
+      setResults([]);
+    } else {
+      setResults([data]);
+    }
   };
 
   const searchByCity = async () => {
+    if (!citySearch.trim()) {
+      alert("La ciudad no puede estar vacía.");
+      return;
+    }
+    if (!/^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(citySearch.trim())) {
+      alert("La ciudad solo puede contener letras y espacios.");
+      return;
+    }
     const res = await fetch(`/api/clients?city=${citySearch}`);
     const data = await res.json();
     setResults(data);
@@ -72,6 +108,14 @@ export default function Home() {
   };
 
   const searchByAgeRange = async () => {
+    if ((ageMin && ageMin < 0) || (ageMax && ageMax < 0)) {
+      alert("Las edades no pueden ser negativas.");
+      return;
+    }
+    if (ageMin && ageMax && Number(ageMin) > Number(ageMax)) {
+      alert("La edad mínima no puede ser mayor que la edad máxima.");
+      return;
+    }
     const params = [];
     if (ageMin) params.push(`ageMin=${ageMin}`);
     if (ageMax) params.push(`ageMax=${ageMax}`);
@@ -256,39 +300,45 @@ export default function Home() {
 
       <div className="mt-8">
         <h2 className="text-xl font-semibold text-gray-900">Resultados</h2>
-        <ul className="mt-4 space-y-4">
-          {results.map((c, i) => (
-            <li key={i} className="text-sm text-gray-900">
-              <div>
-                <b>ID:</b> {c.id}
-              </div>
-              <div>
-                <b>Nombres:</b> {c.nombres}
-              </div>
-              <div>
-                <b>Apellidos:</b> {c.apellidos}
-              </div>
-              <div>
-                <b>Fecha de nacimiento:</b>{" "}
-                {c.fecha_nacimiento
-                  ? new Date(c.fecha_nacimiento).toLocaleDateString()
-                  : ""}
-              </div>
-              <div>
-                <b>Ciudad:</b> {c.ciudad}
-              </div>
-              <div>
-                <b>Fecha de registro:</b>{" "}
-                {c.fecha_registro
-                  ? new Date(c.fecha_registro).toLocaleDateString()
-                  : ""}
-              </div>
-              <div>
-                <b>Email:</b> {c.email}
-              </div>
-            </li>
-          ))}
-        </ul>
+        {results.length === 0 ? (
+          <div className="mt-4 text-sm text-gray-500">
+            No se encontraron resultados.
+          </div>
+        ) : (
+          <ul className="mt-4 space-y-4">
+            {results.map((c, i) => (
+              <li key={i} className="text-sm text-gray-900">
+                <div>
+                  <b>ID:</b> {c.id}
+                </div>
+                <div>
+                  <b>Nombres:</b> {c.nombres}
+                </div>
+                <div>
+                  <b>Apellidos:</b> {c.apellidos}
+                </div>
+                <div>
+                  <b>Fecha de nacimiento:</b>{" "}
+                  {c.fecha_nacimiento
+                    ? new Date(c.fecha_nacimiento).toLocaleDateString()
+                    : ""}
+                </div>
+                <div>
+                  <b>Ciudad:</b> {c.ciudad}
+                </div>
+                <div>
+                  <b>Fecha de registro:</b>{" "}
+                  {c.fecha_registro
+                    ? new Date(c.fecha_registro).toLocaleDateString()
+                    : ""}
+                </div>
+                <div>
+                  <b>Email:</b> {c.email}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
