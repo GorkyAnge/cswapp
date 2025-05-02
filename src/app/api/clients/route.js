@@ -33,6 +33,21 @@ export async function GET(request) {
   const sort = searchParams.get("sort");
   const ageMin = searchParams.get("ageMin");
   const ageMax = searchParams.get("ageMax");
+  const page = parseInt(searchParams.get("page") || "1", 10);
+  const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
+
+  function paginate(arr) {
+    const total = arr.length;
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return {
+      data: arr.slice(start, end),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
 
   if (id) {
     const client = getClientById(id);
@@ -42,16 +57,16 @@ export async function GET(request) {
   }
 
   if (city) {
-    return NextResponse.json(getClientsByCity(city));
+    return NextResponse.json(paginate(getClientsByCity(city)));
   }
 
   if (sort === "age") {
-    return NextResponse.json(getClientsSortedByAge());
+    return NextResponse.json(paginate(getClientsSortedByAge()));
   }
 
   if (ageMin || ageMax) {
-    return NextResponse.json(getClientsByAgeRange(ageMin, ageMax));
+    return NextResponse.json(paginate(getClientsByAgeRange(ageMin, ageMax)));
   }
 
-  return NextResponse.json(getClients());
+  return NextResponse.json(paginate(getClients()));
 }

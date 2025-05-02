@@ -12,6 +12,11 @@ export default function Home() {
   const [csvFileName, setCsvFileName] = useState(""); // Nuevo estado para el nombre del archivo
   const [ageMin, setAgeMin] = useState("");
   const [ageMax, setAgeMax] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalResults, setTotalResults] = useState(0);
+  const [sortBirthdate, setSortBirthdate] = useState(null); // null, 'asc', 'desc'
 
   const handleCSVUpload = (e) => {
     const file = e.target.files[0];
@@ -85,6 +90,35 @@ export default function Home() {
     }
   };
 
+  const updateResults = (data) => {
+    if (data && data.data) {
+      setResults(data.data);
+      setTotalPages(data.totalPages);
+      setTotalResults(data.total);
+    } else {
+      setResults([]);
+      setTotalPages(1);
+      setTotalResults(0);
+    }
+  };
+
+  const fetchClients = async (params = "") => {
+    let sortParam = "";
+    if (sortBirthdate) sortParam = `&sortBirthdate=${sortBirthdate}`;
+    const res = await fetch(
+      `/api/clients?page=${page}&pageSize=${pageSize}${params}${sortParam}`
+    );
+    const data = await res.json();
+    updateResults(data);
+  };
+
+  const toggleSortBirthdate = async () => {
+    const nextSort = sortBirthdate === "asc" ? "desc" : "asc";
+    setSortBirthdate(nextSort);
+    setPage(1);
+    await fetchClients("");
+  };
+
   const searchByCity = async () => {
     if (!citySearch.trim()) {
       alert("La ciudad no puede estar vacía.");
@@ -94,17 +128,12 @@ export default function Home() {
       alert("La ciudad solo puede contener letras y espacios.");
       return;
     }
-    const res = await fetch(`/api/clients?city=${citySearch}`);
-    const data = await res.json();
-    setResults(data);
+    await fetchClients(`&city=${encodeURIComponent(citySearch)}`);
   };
 
   const sortByAge = async (e) => {
-    e.preventDefault(); // Previene la recarga del formulario
-
-    const res = await fetch(`/api/clients?sort=age`);
-    const data = await res.json();
-    setResults(data); // Actualiza los resultados
+    e.preventDefault();
+    await fetchClients(`&sort=age`);
   };
 
   const searchByAgeRange = async () => {
@@ -119,10 +148,24 @@ export default function Home() {
     const params = [];
     if (ageMin) params.push(`ageMin=${ageMin}`);
     if (ageMax) params.push(`ageMax=${ageMax}`);
-    const query = params.length ? `?${params.join("&")}` : "";
-    const res = await fetch(`/api/clients${query}`);
-    const data = await res.json();
-    setResults(data);
+    const query = params.length ? `&${params.join("&")}` : "";
+    await fetchClients(query);
+  };
+
+  const goToPage = async (newPage) => {
+    setPage(newPage);
+    // Mantener el último filtro aplicado
+    if (citySearch)
+      await fetchClients(`&city=${encodeURIComponent(citySearch)}`);
+    else if (ageMin || ageMax) {
+      const params = [];
+      if (ageMin) params.push(`ageMin=${ageMin}`);
+      if (ageMax) params.push(`ageMax=${ageMax}`);
+      const query = params.length ? `&${params.join("&")}` : "";
+      await fetchClients(query);
+    } else {
+      await fetchClients("");
+    }
   };
 
   const playSound = () => {
@@ -305,39 +348,93 @@ export default function Home() {
             No se encontraron resultados.
           </div>
         ) : (
-          <ul className="mt-4 space-y-4">
-            {results.map((c, i) => (
-              <li key={i} className="text-sm text-gray-900">
-                <div>
-                  <b>ID:</b> {c.id}
-                </div>
-                <div>
-                  <b>Nombres:</b> {c.nombres}
-                </div>
-                <div>
-                  <b>Apellidos:</b> {c.apellidos}
-                </div>
-                <div>
-                  <b>Fecha de nacimiento:</b>{" "}
-                  {c.fecha_nacimiento
-                    ? new Date(c.fecha_nacimiento).toLocaleDateString()
-                    : ""}
-                </div>
-                <div>
-                  <b>Ciudad:</b> {c.ciudad}
-                </div>
-                <div>
-                  <b>Fecha de registro:</b>{" "}
-                  {c.fecha_registro
-                    ? new Date(c.fecha_registro).toLocaleDateString()
-                    : ""}
-                </div>
-                <div>
-                  <b>Email:</b> {c.email}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <>
+            <div className="mb-2 text-sm text-gray-600">
+              Mostrando {results.length} de {totalResults} resultados
+            </div>
+            {/* Tabla de resultados */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 border rounded-lg">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      ID
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      Nombres
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      Apellidos
+                    </th>
+                    <th
+                      className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer select-none"
+                      onClick={toggleSortBirthdate}
+                    >
+                      Fecha de nacimiento
+                      {sortBirthdate === "asc" && <span> ▲</span>}
+                      {sortBirthdate === "desc" && <span> ▼</span>}
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      Ciudad
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      Fecha de registro
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      Email
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {results.map((c, i) => (
+                    <tr key={i}>
+                      <td className="px-4 py-2 whitespace-nowrap">{c.id}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        {c.nombres}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        {c.apellidos}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        {c.fecha_nacimiento
+                          ? new Date(c.fecha_nacimiento).toLocaleDateString()
+                          : ""}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        {c.ciudad}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        {c.fecha_registro
+                          ? new Date(c.fecha_registro).toLocaleDateString()
+                          : ""}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">{c.email}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Controles de paginación */}
+            <div className="flex justify-center items-center gap-2 mt-6">
+              <button
+                onClick={() => goToPage(page - 1)}
+                disabled={page <= 1}
+                className="px-3 py-1 rounded bg-gray-200 disabled:opacity-50"
+              >
+                Anterior
+              </button>
+              <span>
+                Página {page} de {totalPages}
+              </span>
+              <button
+                onClick={() => goToPage(page + 1)}
+                disabled={page >= totalPages}
+                className="px-3 py-1 rounded bg-gray-200 disabled:opacity-50"
+              >
+                Siguiente
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>
