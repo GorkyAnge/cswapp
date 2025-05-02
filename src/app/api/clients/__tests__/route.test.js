@@ -60,36 +60,78 @@ describe('api/clients/route.js', () => {
       expect(mockJson).toHaveBeenCalledWith({}, { status: 404 });
     });
 
-    it('returns clients by city', async () => {
-      data.getClientsByCity.mockReturnValue([{ id: '2' }]);
+    it('returns clients by city with pagination', async () => {
+      const cityClients = [{ id: '2' }, { id: '5' }];
+      data.getClientsByCity.mockReturnValue(cityClients);
       const req = makeRequest({ city: 'Quito' });
       await GET(req);
       expect(data.getClientsByCity).toHaveBeenCalledWith('Quito');
-      expect(mockJson).toHaveBeenCalledWith([{ id: '2' }]);
+      expect(mockJson).toHaveBeenCalledWith({
+        data: cityClients,
+        total: 2,
+        page: 1,
+        pageSize: 10,
+        totalPages: 1
+      });
     });
 
-    it('returns clients sorted by age', async () => {
-      data.getClientsSortedByAge.mockReturnValue([{ id: '3' }]);
+    it('returns clients sorted by age with pagination', async () => {
+      const sortedClients = [{ id: '3' }, { id: '1' }, { id: '4' }];
+      data.getClientsSortedByAge.mockReturnValue(sortedClients);
       const req = makeRequest({ sort: 'age' });
       await GET(req);
       expect(data.getClientsSortedByAge).toHaveBeenCalled();
-      expect(mockJson).toHaveBeenCalledWith([{ id: '3' }]);
+      expect(mockJson).toHaveBeenCalledWith({
+        data: sortedClients,
+        total: 3,
+        page: 1,
+        pageSize: 10,
+        totalPages: 1
+      });
     });
 
-    it('returns clients by age range', async () => {
-      data.getClientsByAgeRange.mockReturnValue([{ id: '4' }]);
+    it('returns clients by age range with pagination', async () => {
+      const filteredClients = [{ id: '4' }, { id: '7' }];
+      data.getClientsByAgeRange.mockReturnValue(filteredClients);
       const req = makeRequest({ ageMin: '20', ageMax: '30' });
       await GET(req);
       expect(data.getClientsByAgeRange).toHaveBeenCalledWith('20', '30');
-      expect(mockJson).toHaveBeenCalledWith([{ id: '4' }]);
+      expect(mockJson).toHaveBeenCalledWith({
+        data: filteredClients,
+        total: 2,
+        page: 1,
+        pageSize: 10,
+        totalPages: 1
+      });
     });
 
-    it('returns all clients by default', async () => {
-      data.getClients.mockReturnValue([{ id: '5' }]);
+    it('returns all clients with pagination by default', async () => {
+      const allClients = [{ id: '1' }, { id: '2' }, { id: '3' }];
+      data.getClients.mockReturnValue(allClients);
       const req = makeRequest();
       await GET(req);
       expect(data.getClients).toHaveBeenCalled();
-      expect(mockJson).toHaveBeenCalledWith([{ id: '5' }]);
+      expect(mockJson).toHaveBeenCalledWith({
+        data: allClients,
+        total: 3,
+        page: 1,
+        pageSize: 10,
+        totalPages: 1
+      });
+    });
+
+    it('handles custom pagination parameters', async () => {
+      const allClients = Array.from({ length: 25 }, (_, i) => ({ id: String(i + 1) }));
+      data.getClients.mockReturnValue(allClients);
+      const req = makeRequest({ page: '2', pageSize: '5' });
+      await GET(req);
+      expect(mockJson).toHaveBeenCalledWith({
+        data: allClients.slice(5, 10),
+        total: 25,
+        page: 2,
+        pageSize: 5,
+        totalPages: 5
+      });
     });
   });
 });
