@@ -18,7 +18,17 @@ export default function Home() {
   const [totalResults, setTotalResults] = useState(0);
   const [sortBirthdate, setSortBirthdate] = useState(null); // null, 'asc', 'desc'
 
+  // Utilidad para medir tiempo
+  const logTime = async (label, fn) => {
+    const start = performance.now();
+    const result = await fn();
+    const end = performance.now();
+    console.log(`${label}: ${(end - start).toFixed(2)} ms`);
+    return result;
+  };
+
   const handleCSVUpload = (e) => {
+    const start = performance.now();
     const file = e.target.files[0];
     if (!file) return;
     setCsvFileName(file.name);
@@ -71,23 +81,27 @@ export default function Home() {
           alert(msg);
           setClients(validRows);
         }
+        const end = performance.now();
+        console.log(`handleCSVUpload: ${(end - start).toFixed(2)} ms`);
       },
     });
   };
 
   const searchById = async () => {
-    if (!/^\d+$/.test(idSearch)) {
-      alert("El ID debe ser un número positivo.");
-      return;
-    }
-    const res = await fetch(`/api/clients?id=${idSearch}`);
-    const data = await res.json();
-    // Si data es null, undefined o un objeto vacío, mostrar sin resultados
-    if (!data || (typeof data === "object" && Object.keys(data).length === 0)) {
-      setResults([]);
-    } else {
-      setResults([data]);
-    }
+    await logTime("searchById", async () => {
+      if (!/^\d+$/.test(idSearch)) {
+        alert("El ID debe ser un número positivo.");
+        return;
+      }
+      const res = await fetch(`/api/clients?id=${idSearch}`);
+      const data = await res.json();
+      // Si data es null, undefined o un objeto vacío, mostrar sin resultados
+      if (!data || (typeof data === "object" && Object.keys(data).length === 0)) {
+        setResults([]);
+      } else {
+        setResults([data]);
+      }
+    });
   };
 
   const updateResults = (data) => {
@@ -102,37 +116,58 @@ export default function Home() {
     }
   };
 
-  // Eliminar sortBirthdate del fetch al backend
   const fetchClients = async (params = "") => {
-    const res = await fetch(
-      `/api/clients?page=${page}&pageSize=${pageSize}${params}`
-    );
-    const data = await res.json();
-    updateResults(data);
+    await logTime("fetchClients", async () => {
+      let sortParam = "";
+      if (sortBirthdate) sortParam = `&sortBirthdate=${sortBirthdate}`;
+      const res = await fetch(
+        `/api/clients?page=${page}&pageSize=${pageSize}${params}${sortParam}`
+      );
+      const data = await res.json();
+      updateResults(data);
+    });
   };
 
-  // Ordenar results localmente por fecha de nacimiento
+  // Nuevo: listar todos los clientes sin filtros
+  const listAllClients = async () => {
+    await logTime("listAllClients", async () => {
+      setSortBirthdate(null); // Quitar ordenamiento
+      setPage(1);
+      await fetchClients("");
+    });
+  };
+
+  // Modificar toggleSortBirthdate para ordenar solo los resultados actuales
   const toggleSortBirthdate = () => {
+    const start = performance.now();
     const nextSort = sortBirthdate === "asc" ? "desc" : "asc";
     setSortBirthdate(nextSort);
     const sorted = [...results].sort((a, b) => {
-      const dateA = a.fecha_nacimiento ? new Date(a.fecha_nacimiento) : new Date(0);
-      const dateB = b.fecha_nacimiento ? new Date(b.fecha_nacimiento) : new Date(0);
+      const dateA = a.fecha_nacimiento
+        ? new Date(a.fecha_nacimiento)
+        : new Date(0);
+      const dateB = b.fecha_nacimiento
+        ? new Date(b.fecha_nacimiento)
+        : new Date(0);
       return nextSort === "asc" ? dateA - dateB : dateB - dateA;
     });
     setResults(sorted);
+    const end = performance.now();
+    console.log(`toggleSortBirthdate: ${(end - start).toFixed(2)} ms`);
   };
 
   const searchByCity = async () => {
-    if (!citySearch.trim()) {
-      alert("La ciudad no puede estar vacía.");
-      return;
-    }
-    if (!/^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(citySearch.trim())) {
-      alert("La ciudad solo puede contener letras y espacios.");
-      return;
-    }
-    await fetchClients(`&city=${encodeURIComponent(citySearch)}`);
+    await logTime("searchByCity", async () => {
+      if (!citySearch.trim()) {
+        alert("La ciudad no puede estar vacía.");
+        return;
+      }
+      if (!/^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(citySearch.trim())) {
+        alert("La ciudad solo puede contener letras y espacios.");
+        return;
+      }
+      await fetchClients(`&city=${encodeURIComponent(citySearch)}`);
+    });
   };
 
   const sortByAge = async (e) => {
@@ -141,35 +176,39 @@ export default function Home() {
   };
 
   const searchByAgeRange = async () => {
-    if ((ageMin && ageMin < 0) || (ageMax && ageMax < 0)) {
-      alert("Las edades no pueden ser negativas.");
-      return;
-    }
-    if (ageMin && ageMax && Number(ageMin) > Number(ageMax)) {
-      alert("La edad mínima no puede ser mayor que la edad máxima.");
-      return;
-    }
-    const params = [];
-    if (ageMin) params.push(`ageMin=${ageMin}`);
-    if (ageMax) params.push(`ageMax=${ageMax}`);
-    const query = params.length ? `&${params.join("&")}` : "";
-    await fetchClients(query);
-  };
-
-  const goToPage = async (newPage) => {
-    setPage(newPage);
-    // Mantener el último filtro aplicado
-    if (citySearch)
-      await fetchClients(`&city=${encodeURIComponent(citySearch)}`);
-    else if (ageMin || ageMax) {
+    await logTime("searchByAgeRange", async () => {
+      if ((ageMin && ageMin < 0) || (ageMax && ageMax < 0)) {
+        alert("Las edades no pueden ser negativas.");
+        return;
+      }
+      if (ageMin && ageMax && Number(ageMin) > Number(ageMax)) {
+        alert("La edad mínima no puede ser mayor que la edad máxima.");
+        return;
+      }
       const params = [];
       if (ageMin) params.push(`ageMin=${ageMin}`);
       if (ageMax) params.push(`ageMax=${ageMax}`);
       const query = params.length ? `&${params.join("&")}` : "";
       await fetchClients(query);
-    } else {
-      await fetchClients("");
-    }
+    });
+  };
+
+  const goToPage = async (newPage) => {
+    await logTime("goToPage", async () => {
+      setPage(newPage);
+      // Mantener el último filtro aplicado
+      if (citySearch)
+        await fetchClients(`&city=${encodeURIComponent(citySearch)}`);
+      else if (ageMin || ageMax) {
+        const params = [];
+        if (ageMin) params.push(`ageMin=${ageMin}`);
+        if (ageMax) params.push(`ageMax=${ageMax}`);
+        const query = params.length ? `&${params.join("&")}` : "";
+        await fetchClients(query);
+      } else {
+        await fetchClients("");
+      }
+    });
   };
 
   const playSound = () => {
@@ -193,7 +232,7 @@ export default function Home() {
         />
       </div>
 
-      <form className="space-y-12 mt-8">
+      <form className="space-y-12 mt-8" onSubmit={(e) => e.preventDefault()}>
         <div className="border-b border-gray-900/10 pb-12">
           <h2 className="text-xl font-semibold text-gray-900">
             Subir Archivo CSV
@@ -337,10 +376,10 @@ export default function Home() {
 
         <div className="mt-6">
           <button
-            onClick={sortByAge}
+            onClick={listAllClients}
             className="w-full py-2 px-4 rounded-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700"
           >
-            Listar todos los clientes por edad
+            Listar todos los clientes
           </button>
         </div>
       </form>
@@ -357,67 +396,59 @@ export default function Home() {
               Mostrando {results.length} de {totalResults} resultados
             </div>
             {/* Tabla de resultados */}
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 border rounded-lg">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      ID
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Nombres
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Apellidos
-                    </th>
-                    <th
-                      className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer select-none"
-                      onClick={toggleSortBirthdate}
-                    >
-                      Fecha de nacimiento
-                      {sortBirthdate === "asc" && <span> ▲</span>}
-                      {sortBirthdate === "desc" && <span> ▼</span>}
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Ciudad
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Fecha de registro
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Email
-                    </th>
+            <table className="w-full divide-y divide-gray-200 border rounded-lg">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    ID
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Nombres
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Apellidos
+                  </th>
+                  <th
+                    className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer select-none"
+                    onClick={toggleSortBirthdate}
+                  >
+                    Fecha de nacimiento
+                    {sortBirthdate === "asc" && <span> ▲</span>}
+                    {sortBirthdate === "desc" && <span> ▼</span>}
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Ciudad
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Fecha de registro
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Email
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {results.map((c, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-2 break-words">{c.id}</td>
+                    <td className="px-4 py-2 break-words">{c.nombres}</td>
+                    <td className="px-4 py-2 break-words">{c.apellidos}</td>
+                    <td className="px-4 py-2 break-words">
+                      {c.fecha_nacimiento
+                        ? new Date(c.fecha_nacimiento).toLocaleDateString()
+                        : ""}
+                    </td>
+                    <td className="px-4 py-2 break-words">{c.ciudad}</td>
+                    <td className="px-4 py-2 break-words">
+                      {c.fecha_registro
+                        ? new Date(c.fecha_registro).toLocaleDateString()
+                        : ""}
+                    </td>
+                    <td className="px-4 py-2 break-words">{c.email}</td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {results.map((c, i) => (
-                    <tr key={i}>
-                      <td className="px-4 py-2 whitespace-nowrap">{c.id}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {c.nombres}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {c.apellidos}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {c.fecha_nacimiento
-                          ? new Date(c.fecha_nacimiento).toLocaleDateString()
-                          : ""}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {c.ciudad}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {c.fecha_registro
-                          ? new Date(c.fecha_registro).toLocaleDateString()
-                          : ""}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">{c.email}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
             {/* Controles de paginación */}
             <div className="flex justify-center items-center gap-2 mt-6">
               <button
