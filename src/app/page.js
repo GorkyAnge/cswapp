@@ -18,7 +18,17 @@ export default function Home() {
   const [totalResults, setTotalResults] = useState(0);
   const [sortBirthdate, setSortBirthdate] = useState(null); // null, 'asc', 'desc'
 
+  // Utilidad para medir tiempo
+  const logTime = async (label, fn) => {
+    const start = performance.now();
+    const result = await fn();
+    const end = performance.now();
+    console.log(`${label}: ${(end - start).toFixed(2)} ms`);
+    return result;
+  };
+
   const handleCSVUpload = (e) => {
+    const start = performance.now();
     const file = e.target.files[0];
     if (!file) return;
     setCsvFileName(file.name);
@@ -71,23 +81,27 @@ export default function Home() {
           alert(msg);
           setClients(validRows);
         }
+        const end = performance.now();
+        console.log(`handleCSVUpload: ${(end - start).toFixed(2)} ms`);
       },
     });
   };
 
   const searchById = async () => {
-    if (!/^\d+$/.test(idSearch)) {
-      alert("El ID debe ser un número positivo.");
-      return;
-    }
-    const res = await fetch(`/api/clients?id=${idSearch}`);
-    const data = await res.json();
-    // Si data es null, undefined o un objeto vacío, mostrar sin resultados
-    if (!data || (typeof data === "object" && Object.keys(data).length === 0)) {
-      setResults([]);
-    } else {
-      setResults([data]);
-    }
+    await logTime("searchById", async () => {
+      if (!/^\d+$/.test(idSearch)) {
+        alert("El ID debe ser un número positivo.");
+        return;
+      }
+      const res = await fetch(`/api/clients?id=${idSearch}`);
+      const data = await res.json();
+      // Si data es null, undefined o un objeto vacío, mostrar sin resultados
+      if (!data || (typeof data === "object" && Object.keys(data).length === 0)) {
+        setResults([]);
+      } else {
+        setResults([data]);
+      }
+    });
   };
 
   const updateResults = (data) => {
@@ -103,24 +117,29 @@ export default function Home() {
   };
 
   const fetchClients = async (params = "") => {
-    let sortParam = "";
-    if (sortBirthdate) sortParam = `&sortBirthdate=${sortBirthdate}`;
-    const res = await fetch(
-      `/api/clients?page=${page}&pageSize=${pageSize}${params}${sortParam}`
-    );
-    const data = await res.json();
-    updateResults(data);
+    await logTime("fetchClients", async () => {
+      let sortParam = "";
+      if (sortBirthdate) sortParam = `&sortBirthdate=${sortBirthdate}`;
+      const res = await fetch(
+        `/api/clients?page=${page}&pageSize=${pageSize}${params}${sortParam}`
+      );
+      const data = await res.json();
+      updateResults(data);
+    });
   };
 
   // Nuevo: listar todos los clientes sin filtros
   const listAllClients = async () => {
-    setSortBirthdate(null); // Quitar ordenamiento
-    setPage(1);
-    await fetchClients("");
+    await logTime("listAllClients", async () => {
+      setSortBirthdate(null); // Quitar ordenamiento
+      setPage(1);
+      await fetchClients("");
+    });
   };
 
   // Modificar toggleSortBirthdate para ordenar solo los resultados actuales
   const toggleSortBirthdate = () => {
+    const start = performance.now();
     const nextSort = sortBirthdate === "asc" ? "desc" : "asc";
     setSortBirthdate(nextSort);
     const sorted = [...results].sort((a, b) => {
@@ -133,18 +152,22 @@ export default function Home() {
       return nextSort === "asc" ? dateA - dateB : dateB - dateA;
     });
     setResults(sorted);
+    const end = performance.now();
+    console.log(`toggleSortBirthdate: ${(end - start).toFixed(2)} ms`);
   };
 
   const searchByCity = async () => {
-    if (!citySearch.trim()) {
-      alert("La ciudad no puede estar vacía.");
-      return;
-    }
-    if (!/^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(citySearch.trim())) {
-      alert("La ciudad solo puede contener letras y espacios.");
-      return;
-    }
-    await fetchClients(`&city=${encodeURIComponent(citySearch)}`);
+    await logTime("searchByCity", async () => {
+      if (!citySearch.trim()) {
+        alert("La ciudad no puede estar vacía.");
+        return;
+      }
+      if (!/^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(citySearch.trim())) {
+        alert("La ciudad solo puede contener letras y espacios.");
+        return;
+      }
+      await fetchClients(`&city=${encodeURIComponent(citySearch)}`);
+    });
   };
 
   const sortByAge = async (e) => {
@@ -153,35 +176,39 @@ export default function Home() {
   };
 
   const searchByAgeRange = async () => {
-    if ((ageMin && ageMin < 0) || (ageMax && ageMax < 0)) {
-      alert("Las edades no pueden ser negativas.");
-      return;
-    }
-    if (ageMin && ageMax && Number(ageMin) > Number(ageMax)) {
-      alert("La edad mínima no puede ser mayor que la edad máxima.");
-      return;
-    }
-    const params = [];
-    if (ageMin) params.push(`ageMin=${ageMin}`);
-    if (ageMax) params.push(`ageMax=${ageMax}`);
-    const query = params.length ? `&${params.join("&")}` : "";
-    await fetchClients(query);
-  };
-
-  const goToPage = async (newPage) => {
-    setPage(newPage);
-    // Mantener el último filtro aplicado
-    if (citySearch)
-      await fetchClients(`&city=${encodeURIComponent(citySearch)}`);
-    else if (ageMin || ageMax) {
+    await logTime("searchByAgeRange", async () => {
+      if ((ageMin && ageMin < 0) || (ageMax && ageMax < 0)) {
+        alert("Las edades no pueden ser negativas.");
+        return;
+      }
+      if (ageMin && ageMax && Number(ageMin) > Number(ageMax)) {
+        alert("La edad mínima no puede ser mayor que la edad máxima.");
+        return;
+      }
       const params = [];
       if (ageMin) params.push(`ageMin=${ageMin}`);
       if (ageMax) params.push(`ageMax=${ageMax}`);
       const query = params.length ? `&${params.join("&")}` : "";
       await fetchClients(query);
-    } else {
-      await fetchClients("");
-    }
+    });
+  };
+
+  const goToPage = async (newPage) => {
+    await logTime("goToPage", async () => {
+      setPage(newPage);
+      // Mantener el último filtro aplicado
+      if (citySearch)
+        await fetchClients(`&city=${encodeURIComponent(citySearch)}`);
+      else if (ageMin || ageMax) {
+        const params = [];
+        if (ageMin) params.push(`ageMin=${ageMin}`);
+        if (ageMax) params.push(`ageMax=${ageMax}`);
+        const query = params.length ? `&${params.join("&")}` : "";
+        await fetchClients(query);
+      } else {
+        await fetchClients("");
+      }
+    });
   };
 
   const playSound = () => {
