@@ -1,7 +1,19 @@
 // Unit tests for route.js (API handlers)
+
 import * as data from '../../../lib/data';
 import { POST, GET } from '../route';
 
+// Define the mock before jest.mock is called
+const mockJson = jest.fn((body, opts) => ({ body, ...opts }));
+
+// Mock next/server and inject mockJson
+jest.mock('next/server', () => ({
+  NextResponse: {
+    json: (...args) => mockJson(...args),
+  },
+}));
+
+// Mock the data module
 jest.mock('../../../lib/data');
 
 describe('api/clients/route.js', () => {
