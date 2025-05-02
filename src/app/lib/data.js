@@ -1,4 +1,33 @@
+import fs from 'fs';
+import path from 'path';
+
+// Determine if running in production environment
+const isProduction = process.env.NODE_ENV === 'production';
+// Use memory for tests, file storage for development/production
 let clients = [];
+const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'clients.json');
+
+// Initialize data directory if it doesn't exist
+try {
+  if (!fs.existsSync(path.join(process.cwd(), 'data'))) {
+    fs.mkdirSync(path.join(process.cwd(), 'data'), { recursive: true });
+  }
+  if (fs.existsSync(DATA_FILE_PATH)) {
+    const data = fs.readFileSync(DATA_FILE_PATH, 'utf8');
+    clients = JSON.parse(data);
+  }
+} catch (error) {
+  console.error('Error initializing data storage:', error);
+}
+
+// Helper to save clients to file
+function saveClientsToFile(clientsData) {
+  try {
+    fs.writeFileSync(DATA_FILE_PATH, JSON.stringify(clientsData, null, 2), 'utf8');
+  } catch (error) {
+    console.error('Error saving clients data to file:', error);
+  }
+}
 
 export function setClients(newClients) {
   const dateRegex = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
@@ -33,27 +62,41 @@ export function setClients(newClients) {
       fecha_registro: c.fecha_registro ? new Date(c.fecha_registro) : null,
       email: c.email,
     }));
+  
+  // Also save to file for persistence
+  saveClientsToFile(clients);
   console.log("Clientes cargados:", clients);
 }
 
 export function getClients() {
+  // For production, always try to reload from file to get latest data
+  if (isProduction) {
+    try {
+      if (fs.existsSync(DATA_FILE_PATH)) {
+        const data = fs.readFileSync(DATA_FILE_PATH, 'utf8');
+        clients = JSON.parse(data);
+      }
+    } catch (error) {
+      console.error('Error reading clients data from file:', error);
+    }
+  }
   return clients;
 }
 
 export function getClientById(id) {
-  return clients.find((c) => c.id === id);
+  return getClients().find((c) => c.id === id);
 }
 
 export function getClientsByCity(city) {
-  return clients.filter((c) => c.ciudad?.toLowerCase() === city.toLowerCase());
+  return getClients().filter((c) => c.ciudad?.toLowerCase() === city.toLowerCase());
 }
 
 export function getClientsSortedByAge() {
-  return [...clients].sort((a, b) => b.fecha_nacimiento - a.fecha_nacimiento);
+  return [...getClients()].sort((a, b) => b.fecha_nacimiento - a.fecha_nacimiento);
 }
 
 export function getClientsByAgeRange(ageMin, ageMax) {
-  return clients.filter((c) => {
+  return getClients().filter((c) => {
     if (!c.fecha_nacimiento) return false;
     const birth = new Date(c.fecha_nacimiento);
     const today = new Date();
