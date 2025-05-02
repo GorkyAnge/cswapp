@@ -102,21 +102,25 @@ export default function Home() {
     }
   };
 
+  // Eliminar sortBirthdate del fetch al backend
   const fetchClients = async (params = "") => {
-    let sortParam = "";
-    if (sortBirthdate) sortParam = `&sortBirthdate=${sortBirthdate}`;
     const res = await fetch(
-      `/api/clients?page=${page}&pageSize=${pageSize}${params}${sortParam}`
+      `/api/clients?page=${page}&pageSize=${pageSize}${params}`
     );
     const data = await res.json();
     updateResults(data);
   };
 
-  const toggleSortBirthdate = async () => {
+  // Ordenar results localmente por fecha de nacimiento
+  const toggleSortBirthdate = () => {
     const nextSort = sortBirthdate === "asc" ? "desc" : "asc";
     setSortBirthdate(nextSort);
-    setPage(1);
-    await fetchClients("");
+    const sorted = [...results].sort((a, b) => {
+      const dateA = a.fecha_nacimiento ? new Date(a.fecha_nacimiento) : new Date(0);
+      const dateB = b.fecha_nacimiento ? new Date(b.fecha_nacimiento) : new Date(0);
+      return nextSort === "asc" ? dateA - dateB : dateB - dateA;
+    });
+    setResults(sorted);
   };
 
   const searchByCity = async () => {
