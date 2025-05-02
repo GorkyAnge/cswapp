@@ -102,22 +102,34 @@ export default function Home() {
     }
   };
 
-  // Eliminar sortBirthdate del fetch al backend
   const fetchClients = async (params = "") => {
+    let sortParam = "";
+    if (sortBirthdate) sortParam = `&sortBirthdate=${sortBirthdate}`;
     const res = await fetch(
-      `/api/clients?page=${page}&pageSize=${pageSize}${params}`
+      `/api/clients?page=${page}&pageSize=${pageSize}${params}${sortParam}`
     );
     const data = await res.json();
     updateResults(data);
   };
 
-  // Ordenar results localmente por fecha de nacimiento
+  // Nuevo: listar todos los clientes sin filtros
+  const listAllClients = async () => {
+    setSortBirthdate(null); // Quitar ordenamiento
+    setPage(1);
+    await fetchClients("");
+  };
+
+  // Modificar toggleSortBirthdate para ordenar solo los resultados actuales
   const toggleSortBirthdate = () => {
     const nextSort = sortBirthdate === "asc" ? "desc" : "asc";
     setSortBirthdate(nextSort);
     const sorted = [...results].sort((a, b) => {
-      const dateA = a.fecha_nacimiento ? new Date(a.fecha_nacimiento) : new Date(0);
-      const dateB = b.fecha_nacimiento ? new Date(b.fecha_nacimiento) : new Date(0);
+      const dateA = a.fecha_nacimiento
+        ? new Date(a.fecha_nacimiento)
+        : new Date(0);
+      const dateB = b.fecha_nacimiento
+        ? new Date(b.fecha_nacimiento)
+        : new Date(0);
       return nextSort === "asc" ? dateA - dateB : dateB - dateA;
     });
     setResults(sorted);
@@ -193,7 +205,7 @@ export default function Home() {
         />
       </div>
 
-      <form className="space-y-12 mt-8">
+      <form className="space-y-12 mt-8" onSubmit={(e) => e.preventDefault()}>
         <div className="border-b border-gray-900/10 pb-12">
           <h2 className="text-xl font-semibold text-gray-900">
             Subir Archivo CSV
@@ -337,10 +349,10 @@ export default function Home() {
 
         <div className="mt-6">
           <button
-            onClick={sortByAge}
+            onClick={listAllClients}
             className="w-full py-2 px-4 rounded-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700"
           >
-            Listar todos los clientes por edad
+            Listar todos los clientes
           </button>
         </div>
       </form>
@@ -357,67 +369,59 @@ export default function Home() {
               Mostrando {results.length} de {totalResults} resultados
             </div>
             {/* Tabla de resultados */}
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 border rounded-lg">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      ID
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Nombres
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Apellidos
-                    </th>
-                    <th
-                      className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer select-none"
-                      onClick={toggleSortBirthdate}
-                    >
-                      Fecha de nacimiento
-                      {sortBirthdate === "asc" && <span> ▲</span>}
-                      {sortBirthdate === "desc" && <span> ▼</span>}
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Ciudad
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Fecha de registro
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Email
-                    </th>
+            <table className="w-full divide-y divide-gray-200 border rounded-lg">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    ID
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Nombres
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Apellidos
+                  </th>
+                  <th
+                    className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer select-none"
+                    onClick={toggleSortBirthdate}
+                  >
+                    Fecha de nacimiento
+                    {sortBirthdate === "asc" && <span> ▲</span>}
+                    {sortBirthdate === "desc" && <span> ▼</span>}
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Ciudad
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Fecha de registro
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    Email
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {results.map((c, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-2 break-words">{c.id}</td>
+                    <td className="px-4 py-2 break-words">{c.nombres}</td>
+                    <td className="px-4 py-2 break-words">{c.apellidos}</td>
+                    <td className="px-4 py-2 break-words">
+                      {c.fecha_nacimiento
+                        ? new Date(c.fecha_nacimiento).toLocaleDateString()
+                        : ""}
+                    </td>
+                    <td className="px-4 py-2 break-words">{c.ciudad}</td>
+                    <td className="px-4 py-2 break-words">
+                      {c.fecha_registro
+                        ? new Date(c.fecha_registro).toLocaleDateString()
+                        : ""}
+                    </td>
+                    <td className="px-4 py-2 break-words">{c.email}</td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {results.map((c, i) => (
-                    <tr key={i}>
-                      <td className="px-4 py-2 whitespace-nowrap">{c.id}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {c.nombres}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {c.apellidos}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {c.fecha_nacimiento
-                          ? new Date(c.fecha_nacimiento).toLocaleDateString()
-                          : ""}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {c.ciudad}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {c.fecha_registro
-                          ? new Date(c.fecha_registro).toLocaleDateString()
-                          : ""}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">{c.email}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
             {/* Controles de paginación */}
             <div className="flex justify-center items-center gap-2 mt-6">
               <button
